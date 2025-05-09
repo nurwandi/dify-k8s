@@ -28,7 +28,7 @@ spec:
           type: DirectoryOrCreate
       containers:
       - name: dify-api
-        image: langgenius/dify-api:1.3.0
+        image: dify-api:local
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5001
