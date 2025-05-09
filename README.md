@@ -1,0 +1,1 @@
+Please read the documentation in the [challenge](https://github.com/nurwandi/dify-k8s/tree/challenge) branch.

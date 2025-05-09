@@ -1,0 +1,136 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/instance: dify-postgres
+  name: dify-postgres
+  namespace: dify
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/instance: dify-postgres
+  name: dify-postgres
+  namespace: dify
+rules:
+- apiGroups:
+  - "*"
+  resources:
+  - "*"
+  verbs:
+  - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/instance: dify-postgres
+  name: dify-postgres
+  namespace: dify
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: dify-postgres
+subjects:
+- kind: ServiceAccount
+  name: dify-postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: dify-postgres
+  namespace: dify
+spec:
+  selector:
+    matchLabels:
+      app: dify-postgres
+  serviceName: "dify-postgres"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: dify-postgres
+    spec:
+      serviceAccountName: dify-postgres
+      terminationGracePeriodSeconds: 10
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+      - name: dify-postgres
+        image: postgres:15-alpine
+        env:
+        - name: PGUSER
+          # value: postgres
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: PGUSER
+
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: POSTGRES_PASSWORD
+          # value: difyai123456
+
+        - name: POSTGRES_DB
+          # value: dify
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: POSTGRES_DB
+        - name: PGDATA
+          # value: /var/lib/postgresql/data
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: PGDATA
+
+        livenessProbe:
+          exec:
+            command:
+            - "pg_isready"
+            - "-U"
+            - "$(PGUSER)"
+            - "-d"
+            - "$(POSTGRES_DB)"
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 2
+          successThreshold: 1
+          failureThreshold: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        ports:
+        - containerPort: 5432
+          name: postgres-port
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-data
+        hostPath:
+          path: /root/dify/db/postgres/data
+          type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dify-postgres
+  namespace: dify
+spec:
+  selector:
+    app: dify-postgres
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - name: postgres
+    protocol: TCP
+    port: 5432
+    targetPort: 5432
