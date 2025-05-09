@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: dify-worker
+  namespace: dify
+  labels:
+    app: dify-worker
+    app.kubernetes.io/instance: dify-worker
+spec:
+  serviceName: "dify-worker"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dify-worker
+  template:
+    metadata:
+      labels:
+        app: dify-worker
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      volumes:
+      - name: dify-api-storage
+        hostPath:
+          path: /root/dify/app/api/storage
+          type: DirectoryOrCreate
+      containers:
+      - name: dify-worker
+        image: langgenius/dify-api:1.3.0
+        ports:
+        - containerPort: 5001
+          protocol: TCP
+        envFrom:
+        - secretRef:
+            name: dify-secrets
+        env:
+        # - name: CONSOLE_WEB_URL
+        #   value: ""
+        - name: MODE
+          value: worker
+          
+        - name: REDIS_HOST
+          value: dify-redis
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_USERNAME
+          value: ""
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: REDIS_PASSWORD
+        - name: CELERY_BROKER_URL
+          value: >-
+              redis://$(REDIS_USERNAME):$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/1
+ 
+        - name: SENTRY_DSN
+          # value: ''
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: API_SENTRY_DSN
+        - name: SENTRY_TRACES_SAMPLE_RATE
+          # value: '1.0'
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: API_SENTRY_TRACES_SAMPLE_RATE
+        - name: SENTRY_PROFILES_SAMPLE_RATE
+          # value: '1.0'
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: API_SENTRY_PROFILES_SAMPLE_RATE
+          # plugin settings
+        - name: 'PLUGIN_MAX_PACKAGE_SIZE'
+          # value: '52428800'
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: PLUGIN_MAX_PACKAGE_SIZE
+
+        - name: 'INNER_API_KEY_FOR_PLUGIN'
+          # value: 'QaHbTe77CtuXmsfyhR7+vRjI/+XbV1AaFy691iy+kGDv2Jvy0/eAh8Y1'
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: PLUGIN_DIFY_INNER_API_KEY
+  
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        volumeMounts:
+        - name: dify-api-storage
+          mountPath: /app/api/storage
+        imagePullPolicy: IfNotPresent
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dify-worker
+  namespace: dify
+spec:
+  ports:
+  - protocol: TCP
+    port: 5001
+    targetPort: 5001
+  selector:
+    app: dify-worker
+  type: ClusterIP

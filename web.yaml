@@ -1,0 +1,151 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dify-web
+  namespace: dify
+  labels:
+    app: dify-web
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: dify-web
+  template:
+    metadata:
+      labels:
+        app: dify-web
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      automountServiceAccountToken: false
+      containers:
+      - name: dify-web
+        image: langgenius/dify-web:1.3.0
+        env:
+        - name: EDITION
+          value: SELF_HOSTED
+        - name: 'PM2_INSTANCES'
+          value: '2'
+        - name: NEXT_TELEMETRY_DISABLED
+          value: "0"
+        - name: TEXT_GENERATION_TIMEOUT_MS
+          value: "60000"
+        - name: CONSOLE_API_URL
+          # value: ""
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: CONSOLE_API_URL
+        - name: APP_API_URL
+          # value: ""
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: APP_API_URL
+        - name: SENTRY_DSN
+          # value: ""
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: WEB_SENTRY_DSN
+
+        - name: CSP_WHITELIST
+          # value: ""
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: CSP_WHITELIST
+          # dify marketplace
+        - name: 'MARKETPLACE_API_URL'
+          # value: 'https://marketplace.dify.ai'
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: MARKETPLACE_API_URL
+        - name: 'MARKETPLACE_URL'
+          # value: 'https://marketplace.dify.ai'
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: MARKETPLACE_API_URL
+        - name: 'TOP_K_MAX_VALUE'
+          # value: ''
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: TOP_K_MAX_VALUE
+        - name: 'INDEXING_MAX_SEGMENTATION_TOKENS_LENGTH'
+          # value: ''
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: INDEXING_MAX_SEGMENTATION_TOKENS_LENGTH
+
+        - name: 'LOOP_NODE_MAX_COUNT'
+          # value: '100'
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: LOOP_NODE_MAX_COUNT
+        - name: 'MAX_TOOLS_NUM'
+          # value: '10'
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: MAX_TOOLS_NUM
+        - name: 'MAX_PARALLEL_LIMIT'
+          # value: '10'
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: MAX_PARALLEL_LIMIT
+        - name: 'MAX_ITERATIONS_NUM'
+          # value: '5'
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: MAX_ITERATIONS_NUM
+        - name: 'ENABLE_WEBSITE_JINAREADER'
+          # value: 'true'
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: ENABLE_WEBSITE_JINAREADER
+        - name: 'ENABLE_WEBSITE_FIRECRAWL'
+          # value: 'true'
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: ENABLE_WEBSITE_FIRECRAWL
+        - name: 'ENABLE_WEBSITE_WATERCRAWL'
+          # value: 'true'
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: ENABLE_WEBSITE_WATERCRAWL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        ports:
+        - containerPort: 3000
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dify-web
+  namespace: dify
+spec:
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: dify-web
+  type: ClusterIP
+  selector:
+    app: dify-web
